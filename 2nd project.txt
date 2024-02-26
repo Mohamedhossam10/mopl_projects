@@ -1,0 +1,47 @@
+set serveroutput on
+declare 
+v_loc number;
+v_jop_id varchar(10);
+v_dep number;
+v_count NUMBER;
+cursor emp is 
+select FIRST_NAME, LAST_NAME, HIRE_DATE, JOB_TITLE, SALARY, EMAIL, DEPARTMENT_NAME, CITY from EMPLOYEES_TEMP;
+begin
+for rec in emp loop
+SELECT COUNT(*)
+    INTO v_count
+    FROM JOBS
+    WHERE JOB_TITLE =rec.JOB_TITLE;
+IF v_count = 0 THEN
+        INSERT INTO JOBS (JOB_ID,JOB_TITLE)
+        VALUES (SUBSTR(rec.JOB_TITLE, 1, 3),REC.JOB_TITLE);
+end if;
+SELECT COUNT(*)
+    INTO v_count
+    FROM LOCATIONS
+    WHERE CITY =rec.CITY;
+IF v_count = 0 THEN
+        INSERT INTO LOCATIONS (CITY)
+        VALUES (rec.CITY);
+end if;
+SELECT COUNT(*)
+    INTO v_count
+    FROM DEPARTMENTS
+    WHERE DEPARTMENT_NAME =rec.DEPARTMENT_NAME;
+IF v_count = 0 THEN
+        select LOCATION_ID into v_loc from LOCATIONS where CITY=REC.CITY;
+        INSERT INTO DEPARTMENTS (DEPARTMENT_NAME,LOCATION_ID)
+        VALUES (rec.DEPARTMENT_NAME,v_loc);
+end if;
+IF INSTR(rec.EMAIL, '@') > 0 THEN
+select DEPARTMENT_ID into v_dep from DEPARTMENTS where DEPARTMENT_NAME=rec.DEPARTMENT_NAME;
+select JOB_ID into v_jop_id from JOBS where JOB_TITLE=REC.JOB_TITLE;
+INSERT INTO EMPLOYEES (FIRST_NAME, LAST_NAME, EMAIL, HIRE_DATE, JOB_ID, SALARY, DEPARTMENT_ID)
+        VALUES (rec.FIRST_NAME,rec.LAST_NAME,rec.EMAIL,to_date(rec.HIRE_DATE,'DD/MM/YYYY'),v_jop_id,rec.SALARY,v_dep);
+else
+DBMS_OUTPUT.PUT_LINE('i have wrong in email format');
+end if;
+end loop;
+
+DBMS_OUTPUT.PUT_LINE('Done.');
+end;

@@ -1,0 +1,44 @@
+set serveroutput on
+declare
+max_id number;
+new_id number;
+cursor sequances is
+select  sequence_name from all_sequences where SEQUENCE_OWNER='HR' ;
+
+cursor table_and_column is
+select
+   all_cons_columns.table_name, 
+   all_cons_columns.column_name
+from all_constraints, all_cons_columns 
+where 
+   all_constraints.constraint_type = 'P'
+   and all_constraints.constraint_name = all_cons_columns.constraint_name
+   and all_constraints.owner = all_cons_columns.owner
+   and all_constraints.owner='HR' 
+   and all_cons_columns.column_name in (SELECT COLUMN_NAME
+FROM all_tab_columns where owner = 'HR'and DATA_TYPE='NUMBER')
+and all_cons_columns.table_name not in (SELECT TABLE_NAME
+FROM all_cons_columns where owner = 'HR' and POSITION=2);
+begin
+for seq in sequances loop 
+EXECUTE IMMEDIATE 'DROP SEQUENCE ' || seq.sequence_name;
+end loop;
+for rec in table_and_column loop
+EXECUTE IMMEDIATE 'SELECT MAX(' || rec.column_name || ') FROM ' || rec.table_name INTO max_id;
+new_id := COALESCE(max_id, 1) + 1;
+EXECUTE IMMEDIATE  'CREATE SEQUENCE ' || rec.table_name ||
+                   '_sqc START WITH '|| to_char(new_id) ||' INCREMENT BY 1 MAXVALUE 999999999999999999999999999 MINVALUE 1 NOCYCLE CACHE 20 NOORDER';
+
+  
+EXECUTE IMMEDIATE 'CREATE OR REPLACE TRIGGER ' || rec.table_name ||
+                   '_trg BEFORE INSERT ON ' ||rec.table_name ||
+                   ' REFERENCING NEW AS New OLD AS Old' ||
+                   ' FOR EACH ROW' ||
+                   ' BEGIN' ||
+                   '   :new.' || rec.column_name || ' := ' || rec.table_name || '_sqc.nextval;' ||
+                   ' END ;';
+  
+
+end loop;
+DBMS_OUTPUT.PUT_LINE('Sequence and Trigger created successfully.');
+end;
